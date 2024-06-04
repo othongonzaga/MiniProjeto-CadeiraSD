@@ -1,0 +1,4 @@
+{
+    1: {"produtoA": 100, "produtoB": 200},
+    2: {"produtoA": 150, "produtoC": 300}
+}
