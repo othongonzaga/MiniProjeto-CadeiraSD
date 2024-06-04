@@ -13,6 +13,9 @@ chave = os.getenv('SECRET_KEY').encode()
 # Criando o objeto Fernet para criptografia
 cipher_suite = Fernet(chave)
 
+# Dicionário para armazenar os clientes conectados
+clients = {}
+
 # Função para criptografar uma mensagem
 def encrypt_message(message):
     return cipher_suite.encrypt(message.encode())
@@ -22,7 +25,7 @@ def decrypt_message(encrypted_message):
     return cipher_suite.decrypt(encrypted_message).decode()
 
 # Função para lidar com a conexão de um cliente
-def handle_client(client_socket):
+def handle_client(client_socket, client_address):
     while True:
         try:
             # Recebe os dados do cliente
@@ -63,12 +66,23 @@ def handle_client(client_socket):
                         client_socket.send(encrypt_message('Produto ou quantidade insuficiente na loja de origem'))
                 else:
                     client_socket.send(encrypt_message('Loja de origem ou destino não encontrada'))
+            else:
+                # Se a mensagem não for GET nem TRANSFER, assume-se que é uma mensagem do teclado do servidor
+                send_to_all_clients(f'Servidor: {data}')
         except Exception as e:
             client_socket.send(encrypt_message(f'Erro: {str(e)}'))
             break
 
     # Fecha a conexão com o cliente
     client_socket.close()
+
+# Função para enviar uma mensagem para todos os clientes conectados
+def send_to_all_clients(message):
+    for client in clients.values():
+        try:
+            client.send(encrypt_message(message))
+        except:
+            pass
 
 # Função principal
 def main():
@@ -96,9 +110,22 @@ def main():
         client_socket, client_address = server_socket.accept()
         print("Conexão estabelecida com", client_address)
 
+        # Adiciona o cliente ao dicionário de clientes
+        clients[client_address] = client_socket
+
         # Manipula a conexão em uma nova thread
-        client_handler = threading.Thread(target=handle_client, args=(client_socket,))
+        client_handler = threading.Thread(target=handle_client, args=(client_socket, client_address))
         client_handler.start()
+
+        # Aguarda entrada do usuário para enviar mensagem para todos os clientes
+        while True:
+            message = input("Digite uma mensagem para os clientes (ou 'sair' para encerrar o servidor): ")
+            if message.lower() == 'sair':
+                server_socket.close()
+                print("Servidor encerrado.")
+                return
+            else:
+                send_to_all_clients(f'Servidor: {message}')
 
 if __name__ == "__main__":
     main()
